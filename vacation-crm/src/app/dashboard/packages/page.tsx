@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ImagePlus } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -32,7 +32,10 @@ interface PackageItem {
   price: number;
   duration: { days: number; nights: number };
   highlights: string[];
+  amenities: string[];
   images: string[];
+  inclusions: string[];
+  exclusions: string[];
   isFeatured: boolean;
   isActive: boolean;
 }
@@ -57,9 +60,13 @@ export default function PackagesPage() {
     days: "",
     nights: "",
     highlights: "",
+    amenities: "",
+    inclusions: "",
+    exclusions: "",
     isFeatured: false,
   });
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const fetchData = async () => {
     try {
@@ -89,6 +96,21 @@ export default function PackagesPage() {
     ? locations.filter((loc) => loc.country?._id === form.country || (loc.country as unknown as string) === form.country)
     : locations;
 
+  // Handle image file selection with preview
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    setImageFiles(files);
+    if (files) {
+      const previews: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        previews.push(URL.createObjectURL(files[i]));
+      }
+      setImagePreviews(previews);
+    } else {
+      setImagePreviews([]);
+    }
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm({
@@ -101,9 +123,13 @@ export default function PackagesPage() {
       days: "",
       nights: "",
       highlights: "",
+      amenities: "",
+      inclusions: "",
+      exclusions: "",
       isFeatured: false,
     });
     setImageFiles(null);
+    setImagePreviews([]);
     setModalOpen(true);
   };
 
@@ -119,9 +145,20 @@ export default function PackagesPage() {
       days: String(item.duration?.days || ""),
       nights: String(item.duration?.nights || ""),
       highlights: item.highlights?.join(", ") || "",
+      amenities: item.amenities?.join(", ") || "",
+      inclusions: item.inclusions?.join(", ") || "",
+      exclusions: item.exclusions?.join(", ") || "",
       isFeatured: item.isFeatured,
     });
     setImageFiles(null);
+    // Show existing images as previews
+    if (item.images?.length > 0) {
+      setImagePreviews(
+        item.images.map((img) => img.startsWith("http") ? img : `http://localhost:5000/${img}`)
+      );
+    } else {
+      setImagePreviews([]);
+    }
     setModalOpen(true);
   };
 
@@ -138,6 +175,9 @@ export default function PackagesPage() {
     formData.append("price", form.price);
     formData.append("duration", JSON.stringify({ days: Number(form.days), nights: Number(form.nights) }));
     formData.append("highlights", JSON.stringify(form.highlights.split(",").map((h) => h.trim()).filter(Boolean)));
+    formData.append("amenities", JSON.stringify(form.amenities.split(",").map((a) => a.trim()).filter(Boolean)));
+    formData.append("inclusions", JSON.stringify(form.inclusions.split(",").map((i) => i.trim()).filter(Boolean)));
+    formData.append("exclusions", JSON.stringify(form.exclusions.split(",").map((e2) => e2.trim()).filter(Boolean)));
     formData.append("isFeatured", String(form.isFeatured));
 
     if (imageFiles) {
@@ -204,6 +244,7 @@ export default function PackagesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
+                  <th className="text-left px-6 py-3 font-semibold text-gray-600">Images</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Title</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Country</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Location</th>
@@ -216,6 +257,28 @@ export default function PackagesPage() {
               <tbody className="divide-y divide-gray-50">
                 {packages.map((item) => (
                   <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex -space-x-2">
+                        {(item.images?.slice(0, 3) || []).map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img.startsWith("http") ? img : `http://localhost:5000/${img}`}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover border-2 border-white shadow-sm"
+                          />
+                        ))}
+                        {(item.images?.length || 0) > 3 && (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-bold text-gray-500">
+                            +{item.images.length - 3}
+                          </div>
+                        )}
+                        {(!item.images || item.images.length === 0) && (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                            No img
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <div className="flex items-center gap-2">
                         {item.isFeatured && (
@@ -233,7 +296,7 @@ export default function PackagesPage() {
                         {item.travelType?.name || "—"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">${item.price}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">₹{item.price}</td>
                     <td className="px-6 py-4 text-gray-500">
                       {item.duration?.days}D / {item.duration?.nights}N
                     </td>
@@ -265,7 +328,7 @@ export default function PackagesPage() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900">
                 {editing ? "Edit Package" : "Add Package"}
@@ -283,7 +346,7 @@ export default function PackagesPage() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   required
-                  placeholder="e.g. Bali Romantic Escape"
+                  placeholder="e.g. Noida Weekend Getaway"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                 />
               </div>
@@ -337,14 +400,14 @@ export default function PackagesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price ($) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹) *</label>
                   <input
                     type="number"
                     value={form.price}
                     onChange={(e) => setForm({ ...form, price: e.target.value })}
                     required
                     min="0"
-                    placeholder="999"
+                    placeholder="4999"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                   />
                 </div>
@@ -359,7 +422,7 @@ export default function PackagesPage() {
                     onChange={(e) => setForm({ ...form, days: e.target.value })}
                     required
                     min="1"
-                    placeholder="7"
+                    placeholder="3"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                   />
                 </div>
@@ -371,7 +434,7 @@ export default function PackagesPage() {
                     onChange={(e) => setForm({ ...form, nights: e.target.value })}
                     required
                     min="0"
-                    placeholder="6"
+                    placeholder="2"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                   />
                 </div>
@@ -396,20 +459,88 @@ export default function PackagesPage() {
                   type="text"
                   value={form.highlights}
                   onChange={(e) => setForm({ ...form, highlights: e.target.value })}
-                  placeholder="e.g. 5★ Resort, Airport Transfer, Spa"
+                  placeholder="e.g. 5-Star Hotel, Theme Park, Shopping"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Images</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amenities <span className="text-gray-400 font-normal">(comma separated)</span>
+                </label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => setImageFiles(e.target.files)}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-600 hover:file:bg-orange-100"
+                  type="text"
+                  value={form.amenities}
+                  onChange={(e) => setForm({ ...form, amenities: e.target.value })}
+                  placeholder="e.g. Free WiFi, Pool, Spa, Breakfast, AC Rooms, Gym"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Inclusions <span className="text-gray-400 font-normal">(comma separated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.inclusions}
+                  onChange={(e) => setForm({ ...form, inclusions: e.target.value })}
+                  placeholder="e.g. Hotel Stay, Breakfast & Dinner, City Tour"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Exclusions <span className="text-gray-400 font-normal">(comma separated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.exclusions}
+                  onChange={(e) => setForm({ ...form, exclusions: e.target.value })}
+                  placeholder="e.g. Airfare, Personal Expenses, Lunch"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+                />
+              </div>
+
+              {/* Multiple Image Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Images <span className="text-gray-400 font-normal">(select multiple)</span>
+                </label>
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    id="pkg-images"
+                    className="hidden"
+                  />
+                  <label htmlFor="pkg-images" className="cursor-pointer flex flex-col items-center gap-2">
+                    <ImagePlus className="w-8 h-8 text-gray-400" />
+                    <span className="text-sm text-gray-500">Click to upload images</span>
+                    <span className="text-xs text-gray-400">PNG, JPG, WEBP up to 5MB each</span>
+                  </label>
+                </div>
+
+                {/* Image Previews */}
+                {imagePreviews.length > 0 && (
+                  <div className="grid grid-cols-4 gap-3 mt-3">
+                    {imagePreviews.map((src, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={src}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-white text-xs font-medium">{idx + 1}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

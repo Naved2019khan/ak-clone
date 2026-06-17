@@ -53,6 +53,7 @@ exports.create = async (req, res) => {
       price,
       duration,
       highlights,
+      amenities,
       inclusions,
       exclusions,
       isFeatured,
@@ -69,6 +70,7 @@ exports.create = async (req, res) => {
       price,
       duration: typeof duration === "string" ? JSON.parse(duration) : duration,
       highlights: typeof highlights === "string" ? JSON.parse(highlights) : highlights,
+      amenities: typeof amenities === "string" ? JSON.parse(amenities) : amenities,
       inclusions: typeof inclusions === "string" ? JSON.parse(inclusions) : inclusions,
       exclusions: typeof exclusions === "string" ? JSON.parse(exclusions) : exclusions,
       images,
@@ -103,6 +105,9 @@ exports.update = async (req, res) => {
     }
     if (typeof updateData.highlights === "string") {
       updateData.highlights = JSON.parse(updateData.highlights);
+    }
+    if (typeof updateData.amenities === "string") {
+      updateData.amenities = JSON.parse(updateData.amenities);
     }
     if (typeof updateData.inclusions === "string") {
       updateData.inclusions = JSON.parse(updateData.inclusions);

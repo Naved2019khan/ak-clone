@@ -11,6 +11,7 @@ exports.getAll = async (req, res) => {
 
     const locations = await Location.find(filter)
       .populate("country", "name code")
+      .populate("packageTypes", "name")
       .sort({ name: 1 });
     res.json({ success: true, data: locations });
   } catch (error) {
@@ -36,11 +37,27 @@ exports.getById = async (req, res) => {
 // @route   POST /api/locations
 exports.create = async (req, res) => {
   try {
-    const { name, country, description } = req.body;
+    const { name, country, description, price, strikePrice, rating, reviews, days, nights, tag, packageTypes } = req.body;
     const image = req.file ? req.file.path : "";
 
-    const location = await Location.create({ name, country, description, image });
-    const populated = await location.populate("country", "name code");
+    // Parse packageTypes if it's a JSON string
+    let parsedPackageTypes = packageTypes;
+    if (typeof packageTypes === "string") {
+      try { parsedPackageTypes = JSON.parse(packageTypes); } catch { parsedPackageTypes = []; }
+    }
+
+    const location = await Location.create({
+      name, country, description, image,
+      price: price || 0,
+      strikePrice: strikePrice || 0,
+      rating: rating || 0,
+      reviews: reviews || 0,
+      days: days || 1,
+      nights: nights || 0,
+      tag: tag || "",
+      packageTypes: parsedPackageTypes || [],
+    });
+    const populated = await location.populate(["country", "packageTypes"]);
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
     if (error.code === 11000) {
@@ -58,11 +75,15 @@ exports.update = async (req, res) => {
     if (req.file) {
       updateData.image = req.file.path;
     }
+    // Parse packageTypes if it's a JSON string
+    if (typeof updateData.packageTypes === "string") {
+      try { updateData.packageTypes = JSON.parse(updateData.packageTypes); } catch { updateData.packageTypes = []; }
+    }
 
     const location = await Location.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("country", "name code");
+    }).populate("country", "name code").populate("packageTypes", "name");
 
     if (!location) {
       return res.status(404).json({ success: false, message: "Location not found" });

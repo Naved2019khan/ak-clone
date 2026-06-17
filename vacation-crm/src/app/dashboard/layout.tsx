@@ -7,7 +7,9 @@ import {
   LayoutDashboard,
   Compass,
   Globe,
+  MapPin,
   Package,
+  Star,
   LogOut,
   Menu,
   X,
@@ -18,7 +20,9 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/travel-types", label: "Travel Types", icon: Compass },
   { href: "/dashboard/countries", label: "Countries", icon: Globe },
+  { href: "/dashboard/locations", label: "Locations", icon: MapPin },
   { href: "/dashboard/packages", label: "Packages", icon: Package },
+  { href: "/dashboard/featured", label: "Featured", icon: Star },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -20,6 +20,40 @@ const locationSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    price: {
+      type: Number,
+      default: 0,
+    },
+    strikePrice: {
+      type: Number,
+      default: 0,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviews: {
+      type: Number,
+      default: 0,
+    },
+    days: {
+      type: Number,
+      default: 1,
+    },
+    nights: {
+      type: Number,
+      default: 0,
+    },
+    tag: {
+      type: String,
+      default: "",
+    },
+    packageTypes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TravelType",
+    }],
     isActive: {
       type: Boolean,
       default: true,

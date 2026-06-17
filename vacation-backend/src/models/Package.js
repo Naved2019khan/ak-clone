@@ -36,6 +36,7 @@ const packageSchema = new mongoose.Schema(
       nights: { type: Number, required: true },
     },
     highlights: [{ type: String }],
+    amenities: [{ type: String }],
     images: [{ type: String }],
     inclusions: [{ type: String }],
     exclusions: [{ type: String }],
