@@ -62,3 +62,9 @@ Country → has many Locations
 Location → belongs to Country
 Package → belongs to Country, Location, and TravelType
 ```
+
+PORT=5000
+MONGODB_URI=/vacation-crm
+NODE_ENV=development
+JWT_SECRET=vacation-crm-secret-key-2024
+
