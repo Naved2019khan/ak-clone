@@ -23,6 +23,7 @@ app.use("/api/locations", require("./routes/location.routes"));
 app.use("/api/packages", require("./routes/package.routes"));
 app.use("/api/destinations", require("./routes/destination.routes"));
 app.use("/api/settings", require("./routes/settings.routes"));
+app.use("/api/bookings", require("./routes/booking.routes"));
 
 // Health check
 app.get("/", (req, res) => {

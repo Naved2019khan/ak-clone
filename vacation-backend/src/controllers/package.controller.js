@@ -23,10 +23,29 @@ exports.getAll = async (req, res) => {
 };
 
 // @desc    Get single package
+// @desc    Get single package by ID
 // @route   GET /api/packages/:id
 exports.getById = async (req, res) => {
   try {
     const pkg = await Package.findById(req.params.id)
+      .populate("country", "name code image")
+      .populate("location", "name image")
+      .populate("travelType", "name image");
+
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: "Package not found" });
+    }
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get single package by slug
+// @route   GET /api/packages/slug/:slug
+exports.getBySlug = async (req, res) => {
+  try {
+    const pkg = await Package.findOne({ slug: req.params.slug })
       .populate("country", "name code image")
       .populate("location", "name image")
       .populate("travelType", "name image");
@@ -51,11 +70,13 @@ exports.create = async (req, res) => {
       location,
       travelType,
       price,
+      strikePrice,
       duration,
       highlights,
       amenities,
       inclusions,
       exclusions,
+      itinerary,
       isFeatured,
     } = req.body;
 
@@ -68,11 +89,13 @@ exports.create = async (req, res) => {
       location,
       travelType,
       price,
+      strikePrice: strikePrice || 0,
       duration: typeof duration === "string" ? JSON.parse(duration) : duration,
       highlights: typeof highlights === "string" ? JSON.parse(highlights) : highlights,
       amenities: typeof amenities === "string" ? JSON.parse(amenities) : amenities,
       inclusions: typeof inclusions === "string" ? JSON.parse(inclusions) : inclusions,
       exclusions: typeof exclusions === "string" ? JSON.parse(exclusions) : exclusions,
+      itinerary: typeof itinerary === "string" ? JSON.parse(itinerary) : itinerary || [],
       images,
       isFeatured,
     });
@@ -114,6 +137,9 @@ exports.update = async (req, res) => {
     }
     if (typeof updateData.exclusions === "string") {
       updateData.exclusions = JSON.parse(updateData.exclusions);
+    }
+    if (typeof updateData.itinerary === "string") {
+      updateData.itinerary = JSON.parse(updateData.itinerary);
     }
 
     const pkg = await Package.findByIdAndUpdate(req.params.id, updateData, {

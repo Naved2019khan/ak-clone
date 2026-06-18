@@ -1,9 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, ImagePlus } from "lucide-react";
+import { useEffect, useState, KeyboardEvent } from "react";
+import { Plus, Pencil, Trash2, X, ImagePlus, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+
+// Tag Input for the modal
+function ModalTagInput({
+  label,
+  items,
+  onAdd,
+  onRemove,
+  placeholder,
+  colorClass = "bg-gray-100 text-gray-700",
+}: {
+  label: string;
+  items: string[];
+  onAdd: (item: string) => void;
+  onRemove: (index: number) => void;
+  placeholder: string;
+  colorClass?: string;
+}) {
+  const [input, setInput] = useState("");
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = input.trim();
+      if (val && !items.includes(val)) {
+        onAdd(val);
+        setInput("");
+      }
+    }
+  };
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const val = input.trim();
+            if (val && !items.includes(val)) { onAdd(val); setInput(""); }
+          }}
+          className="px-3 py-2.5 bg-orange-50 text-orange-600 text-sm font-medium rounded-xl hover:bg-orange-100 transition-colors"
+        >
+          Add
+        </button>
+      </div>
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {items.map((item, i) => (
+            <span key={i} className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium rounded-lg ${colorClass}`}>
+              {item}
+              <button type="button" onClick={() => onRemove(i)} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface TravelType {
   _id: string;
@@ -41,6 +108,7 @@ interface PackageItem {
 }
 
 export default function PackagesPage() {
+  const router = useRouter();
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [travelTypes, setTravelTypes] = useState<TravelType[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -57,14 +125,15 @@ export default function PackagesPage() {
     location: "",
     travelType: "",
     price: "",
+    strikePrice: "",
     days: "",
     nights: "",
-    highlights: "",
-    amenities: "",
-    inclusions: "",
-    exclusions: "",
     isFeatured: false,
   });
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [inclusions, setInclusions] = useState<string[]>([]);
+  const [exclusions, setExclusions] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
@@ -120,14 +189,15 @@ export default function PackagesPage() {
       location: "",
       travelType: "",
       price: "",
+      strikePrice: "",
       days: "",
       nights: "",
-      highlights: "",
-      amenities: "",
-      inclusions: "",
-      exclusions: "",
       isFeatured: false,
     });
+    setHighlights([]);
+    setAmenities([]);
+    setInclusions([]);
+    setExclusions([]);
     setImageFiles(null);
     setImagePreviews([]);
     setModalOpen(true);
@@ -142,14 +212,15 @@ export default function PackagesPage() {
       location: item.location?._id || "",
       travelType: item.travelType?._id || "",
       price: String(item.price),
+      strikePrice: String((item as any).strikePrice || ""),
       days: String(item.duration?.days || ""),
       nights: String(item.duration?.nights || ""),
-      highlights: item.highlights?.join(", ") || "",
-      amenities: item.amenities?.join(", ") || "",
-      inclusions: item.inclusions?.join(", ") || "",
-      exclusions: item.exclusions?.join(", ") || "",
       isFeatured: item.isFeatured,
     });
+    setHighlights(item.highlights || []);
+    setAmenities(item.amenities || []);
+    setInclusions(item.inclusions || []);
+    setExclusions(item.exclusions || []);
     setImageFiles(null);
     // Show existing images as previews
     if (item.images?.length > 0) {
@@ -173,11 +244,12 @@ export default function PackagesPage() {
     formData.append("location", form.location);
     formData.append("travelType", form.travelType);
     formData.append("price", form.price);
+    formData.append("strikePrice", form.strikePrice || "0");
     formData.append("duration", JSON.stringify({ days: Number(form.days), nights: Number(form.nights) }));
-    formData.append("highlights", JSON.stringify(form.highlights.split(",").map((h) => h.trim()).filter(Boolean)));
-    formData.append("amenities", JSON.stringify(form.amenities.split(",").map((a) => a.trim()).filter(Boolean)));
-    formData.append("inclusions", JSON.stringify(form.inclusions.split(",").map((i) => i.trim()).filter(Boolean)));
-    formData.append("exclusions", JSON.stringify(form.exclusions.split(",").map((e2) => e2.trim()).filter(Boolean)));
+    formData.append("highlights", JSON.stringify(highlights));
+    formData.append("amenities", JSON.stringify(amenities));
+    formData.append("inclusions", JSON.stringify(inclusions));
+    formData.append("exclusions", JSON.stringify(exclusions));
     formData.append("isFeatured", String(form.isFeatured));
 
     if (imageFiles) {
@@ -303,6 +375,13 @@ export default function PackagesPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => router.push(`/dashboard/packages/${item._id}`)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => openEdit(item)}
                           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
                         >
@@ -415,6 +494,17 @@ export default function PackagesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Strike Price (₹)</label>
+                  <input
+                    type="number"
+                    value={form.strikePrice}
+                    onChange={(e) => setForm({ ...form, strikePrice: e.target.value })}
+                    min="0"
+                    placeholder="6999"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Days *</label>
                   <input
                     type="number"
@@ -426,6 +516,9 @@ export default function PackagesPage() {
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nights *</label>
                   <input
@@ -451,57 +544,41 @@ export default function PackagesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Highlights <span className="text-gray-400 font-normal">(comma separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.highlights}
-                  onChange={(e) => setForm({ ...form, highlights: e.target.value })}
-                  placeholder="e.g. 5-Star Hotel, Theme Park, Shopping"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-                />
-              </div>
+              <ModalTagInput
+                label="Highlights"
+                items={highlights}
+                onAdd={(item) => setHighlights([...highlights, item])}
+                onRemove={(i) => setHighlights(highlights.filter((_, idx) => idx !== i))}
+                placeholder="Type and press Enter to add"
+                colorClass="bg-orange-50 text-orange-700"
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amenities <span className="text-gray-400 font-normal">(comma separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.amenities}
-                  onChange={(e) => setForm({ ...form, amenities: e.target.value })}
-                  placeholder="e.g. Free WiFi, Pool, Spa, Breakfast, AC Rooms, Gym"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-                />
-              </div>
+              <ModalTagInput
+                label="Amenities"
+                items={amenities}
+                onAdd={(item) => setAmenities([...amenities, item])}
+                onRemove={(i) => setAmenities(amenities.filter((_, idx) => idx !== i))}
+                placeholder="Type and press Enter to add"
+                colorClass="bg-blue-50 text-blue-700"
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Inclusions <span className="text-gray-400 font-normal">(comma separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.inclusions}
-                  onChange={(e) => setForm({ ...form, inclusions: e.target.value })}
-                  placeholder="e.g. Hotel Stay, Breakfast & Dinner, City Tour"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-                />
-              </div>
+              <ModalTagInput
+                label="Inclusions"
+                items={inclusions}
+                onAdd={(item) => setInclusions([...inclusions, item])}
+                onRemove={(i) => setInclusions(inclusions.filter((_, idx) => idx !== i))}
+                placeholder="Type and press Enter to add"
+                colorClass="bg-green-50 text-green-700"
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Exclusions <span className="text-gray-400 font-normal">(comma separated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.exclusions}
-                  onChange={(e) => setForm({ ...form, exclusions: e.target.value })}
-                  placeholder="e.g. Airfare, Personal Expenses, Lunch"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-                />
-              </div>
+              <ModalTagInput
+                label="Exclusions"
+                items={exclusions}
+                onAdd={(item) => setExclusions([...exclusions, item])}
+                onRemove={(i) => setExclusions(exclusions.filter((_, idx) => idx !== i))}
+                placeholder="Type and press Enter to add"
+                colorClass="bg-red-50 text-red-700"
+              />
 
               {/* Multiple Image Upload */}
               <div>

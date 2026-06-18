@@ -7,6 +7,11 @@ const packageSchema = new mongoose.Schema(
       required: [true, "Package title is required"],
       trim: true,
     },
+    slug: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     description: {
       type: String,
       default: "",
@@ -31,6 +36,19 @@ const packageSchema = new mongoose.Schema(
       required: [true, "Price is required"],
       min: 0,
     },
+    strikePrice: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    itinerary: [
+      {
+        day: { type: Number, required: true },
+        title: { type: String, required: true },
+        description: { type: String, default: "" },
+        activities: [{ type: String }],
+      },
+    ],
     duration: {
       days: { type: Number, required: true },
       nights: { type: Number, required: true },
@@ -43,6 +61,12 @@ const packageSchema = new mongoose.Schema(
     isFeatured: {
       type: Boolean,
       default: false,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
     },
     isActive: {
       type: Boolean,

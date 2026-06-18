@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Plane,
+  ShoppingBag,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/dashboard/countries", label: "Countries", icon: Globe },
   { href: "/dashboard/locations", label: "Locations", icon: MapPin },
   { href: "/dashboard/packages", label: "Packages", icon: Package },
+  { href: "/dashboard/bookings", label: "Bookings", icon: ShoppingBag },
   { href: "/dashboard/featured", label: "Featured", icon: Star },
 ];
 
@@ -30,6 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [pendingBookings, setPendingBookings] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("crm_token");
@@ -41,6 +44,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (userData) {
       setUser(JSON.parse(userData));
     }
+
+    // Fetch pending bookings count
+    const fetchPendingCount = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/bookings?status=pending", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success) {
+          setPendingBookings(data.data.length);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
   }, [router]);
 
   const handleLogout = () => {
@@ -89,6 +110,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
+                {item.href === "/dashboard/bookings" && pendingBookings > 0 && (
+                  <span className="ml-auto bg-orange-500 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center">
+                    {pendingBookings}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

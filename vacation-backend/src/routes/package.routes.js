@@ -4,6 +4,7 @@ const controller = require("../controllers/package.controller");
 const upload = require("../middleware/upload");
 
 router.get("/", controller.getAll);
+router.get("/slug/:slug", controller.getBySlug);
 router.get("/:id", controller.getById);
 router.post("/", upload.array("images", 10), controller.create);
 router.put("/:id", upload.array("images", 10), controller.update);
