@@ -1,84 +1,79 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { MapPin, Star, Filter, Search } from "lucide-react";
+import { MapPin, Star, Search } from "lucide-react";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "Destinations — VoyageArc",
-  description: "Explore 50,000+ destinations worldwide. Find your perfect travel destination.",
-};
+const API_URL = "http://localhost:5000/api";
 
-const allDestinations = [
-  {
-    id: 1, name: "Bali, Indonesia", continent: "Asia",
-    image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80",
-    price: "$899", rating: 4.9, reviews: 2840, nights: 7, type: "Beach & Culture",
-  },
-  {
-    id: 2, name: "Santorini, Greece", continent: "Europe",
-    image: "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=600&q=80",
-    price: "$1,299", rating: 4.8, reviews: 1920, nights: 6, type: "Romantic",
-  },
-  {
-    id: 3, name: "Maldives", continent: "Asia",
-    image: "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=600&q=80",
-    price: "$2,499", rating: 5.0, reviews: 1145, nights: 5, type: "Luxury Beach",
-  },
-  {
-    id: 4, name: "Kyoto, Japan", continent: "Asia",
-    image: "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=600&q=80",
-    price: "$1,150", rating: 4.9, reviews: 2310, nights: 8, type: "Cultural",
-  },
-  {
-    id: 5, name: "Machu Picchu, Peru", continent: "South America",
-    image: "https://images.unsplash.com/photo-1526392060635-9d6019884377?w=600&q=80",
-    price: "$1,599", rating: 4.8, reviews: 987, nights: 9, type: "Adventure",
-  },
-  {
-    id: 6, name: "Paris, France", continent: "Europe",
-    image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80",
-    price: "$1,099", rating: 4.7, reviews: 3560, nights: 6, type: "Romantic",
-  },
-  {
-    id: 7, name: "New York, USA", continent: "North America",
-    image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=600&q=80",
-    price: "$799", rating: 4.6, reviews: 4100, nights: 5, type: "City Break",
-  },
-  {
-    id: 8, name: "Cape Town, South Africa", continent: "Africa",
-    image: "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=600&q=80",
-    price: "$1,399", rating: 4.8, reviews: 876, nights: 8, type: "Adventure",
-  },
-  {
-    id: 9, name: "Dubai, UAE", continent: "Middle East",
-    image: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&q=80",
-    price: "$1,899", rating: 4.7, reviews: 2230, nights: 6, type: "Luxury",
-  },
-  {
-    id: 10, name: "Sydney, Australia", continent: "Oceania",
-    image: "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80",
-    price: "$1,699", rating: 4.8, reviews: 1560, nights: 8, type: "City & Beach",
-  },
-  {
-    id: 11, name: "Amalfi Coast, Italy", continent: "Europe",
-    image: "https://images.unsplash.com/photo-1533606688076-b6683a5f59f1?w=600&q=80",
-    price: "$1,349", rating: 4.9, reviews: 1450, nights: 7, type: "Scenic",
-  },
-  {
-    id: 12, name: "Phuket, Thailand", continent: "Asia",
-    image: "https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=600&q=80",
-    price: "$749", rating: 4.6, reviews: 3100, nights: 7, type: "Beach",
-  },
-];
-
-const continents = ["All", "Asia", "Europe", "North America", "South America", "Africa", "Middle East", "Oceania"];
+interface Location {
+  _id: string;
+  name: string;
+  country: { _id: string; name: string; code: string };
+  description: string;
+  image: string;
+  price: number;
+  strikePrice: number;
+  rating: number;
+  reviews: number;
+  days: number;
+  nights: number;
+  tag: string;
+  packageTypes: { _id: string; name: string }[];
+}
 
 export default function DestinationsPage() {
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const fetchLocations = async (query?: string) => {
+    try {
+      setLoading(true);
+      const url = query && query.trim()
+        ? `${API_URL}/locations/search?q=${encodeURIComponent(query.trim())}`
+        : `${API_URL}/locations`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setLocations(data.data);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fetchLocations(searchQuery);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  const getImageUrl = (img: string) => {
+    if (!img) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80";
+    if (img.startsWith("http")) return img;
+    // Normalize backslashes to forward slashes for URL
+    const normalized = img.replace(/\\/g, "/");
+    return `http://localhost:5000/${normalized}`;
+  };
+
   return (
     <>
       <Navbar />
-      <main className="pt-20 min-h-screen bg-gray-50">
+      <main className="pt-20 min-h-screen bg-[#fafafa] relative overflow-hidden">
+        {/* Background decorative blobs */}
+        <div className="absolute top-40 left-10 w-72 h-72 bg-orange-100/50 rounded-full blur-3xl" />
+        <div className="absolute bottom-40 right-10 w-96 h-96 bg-rose-100/40 rounded-full blur-3xl" />
+
         {/* Hero */}
         <div
           className="relative h-64 bg-cover bg-center flex items-center"
@@ -87,107 +82,112 @@ export default function DestinationsPage() {
               "url('https://images.unsplash.com/photo-1488085061387-422e29b40080?w=1920&q=80')",
           }}
         >
-          <div className="absolute inset-0 bg-blue-900/70" />
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-900/70 to-rose-900/60" />
           <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 w-full">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+            <h1 className="text-4xl md:text-5xl font-black text-white mb-2">
               Explore Destinations
             </h1>
             <p className="text-white/80 text-lg">
-              Discover 50,000+ destinations handpicked for every type of traveler
+              Discover handpicked destinations for every type of traveler
             </p>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
-          {/* Search & Filters */}
-          <div className="bg-white rounded-2xl shadow-sm p-5 mb-8 flex flex-col md:flex-row gap-4">
-            <div className="flex-1 flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-2.5">
-              <Search className="w-4 h-4 text-gray-400" />
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-16">
+          {/* Search Bar */}
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-5 mb-10 border border-orange-100/50 shadow-sm">
+            <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 bg-white max-w-lg">
+              <Search className="w-5 h-5 text-orange-400" />
               <input
                 type="text"
-                placeholder="Search destinations..."
-                className="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search destinations, countries, or tags..."
+                className="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400 bg-transparent"
                 aria-label="Search destinations"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {continents.map((c) => (
-                <button
-                  key={c}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    c === "All"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <button className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:border-blue-400 transition-all shrink-0">
-              <Filter className="w-4 h-4" />
-              Filters
-            </button>
           </div>
 
           {/* Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {allDestinations.map((dest) => (
-              <article
-                key={dest.id}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm card-hover group"
-              >
-                <div className="relative h-44 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={dest.image}
-                    alt={dest.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 gradient-overlay" />
-                  <span className="absolute top-2 left-2 bg-white/90 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-full">
-                    {dest.type}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-1.5">
-                    <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {dest.name}
-                    </h3>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span className="text-sm font-bold text-gray-700">{dest.rating}</span>
+          {loading ? (
+            <div className="text-center py-20">
+              <div className="inline-block w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+              <p className="text-gray-400 mt-4 text-sm">Loading destinations...</p>
+            </div>
+          ) : locations.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-gray-400 text-lg">No destinations found.</p>
+              <p className="text-gray-300 text-sm mt-1">Try a different search or add locations in the CRM.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+              {locations.map((loc) => (
+                <article
+                  key={loc._id}
+                  className="rounded-3xl group"
+                >
+                  {/* Image Container */}
+                  <div className="relative">
+                    <div className="relative aspect-[3/2] overflow-hidden rounded-[20px] shadow-[0_0_15px_rgba(251,146,60,0.12)] border border-orange-100/50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getImageUrl(loc.image)}
+                        alt={loc.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                      {/* Inner ring */}
+                      <div className="absolute inset-0 rounded-[20px] ring-1 ring-inset ring-white/30 pointer-events-none" />
+                      {/* Rating Badge - Top Left */}
+                      {loc.rating > 0 && (
+                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5">
+                          <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+                          <span className="text-[11px] font-semibold text-gray-800">{loc.rating}</span>
+                        </div>
+                      )}
+                      {/* Location Icon - Top Right */}
+                      <div className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center">
+                        <MapPin className="w-3.5 h-3.5 text-orange-500" />
+                      </div>
                     </div>
+                    {/* Cloud shadow below image */}
+                    <div className="mx-6 h-[8px] -mt-[2px] rounded-full bg-gradient-to-r from-orange-300/30 via-rose-400/35 to-orange-300/30 blur-[8px]" />
                   </div>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs mb-3">
-                    <MapPin className="w-3 h-3" />
-                    <span>{dest.continent}</span>
-                    <span className="mx-1">·</span>
-                    <span>{dest.nights} nights</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-bold text-gray-900">{dest.price}</span>
-                      <span className="text-gray-400 text-xs ml-1">/person</span>
-                    </div>
-                    <Link
-                      href={`/destinations/${dest.id}`}
-                      className="text-blue-600 hover:text-blue-800 font-semibold text-sm"
-                    >
-                      Explore →
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
 
-          {/* Load More */}
-          <div className="text-center mt-10">
-            <button className="bg-white border border-blue-200 text-blue-600 font-semibold px-8 py-3 rounded-full hover:bg-blue-50 transition-all">
-              Load More Destinations
-            </button>
-          </div>
+                  {/* Content */}
+                  <div className="pt-4 pb-2 px-1">
+                    <h3 className="text-[15px] font-extrabold text-gray-900 mb-0.5">
+                      {loc.name}
+                    </h3>
+                    <p className="text-[11px] text-orange-500 font-medium mb-1.5">
+                      {loc.country?.name || ""}
+                    </p>
+                    <p className="text-[13px] text-gray-400 leading-[1.6] mb-4 line-clamp-4 min-h-[84px]">
+                      {loc.description || "A beautiful destination waiting to be explored."}
+                    </p>
+
+                    {/* Price & CTA */}
+                    <div className="flex items-center justify-between bg-orange-50/60 border border-orange-100/50 rounded-xl px-4 py-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-base font-extrabold text-gray-900">
+                          ₹{loc.price > 0 ? loc.price.toLocaleString() : "—"}
+                        </span>
+                        {loc.nights > 0 && (
+                          <span className="text-[11px] text-gray-500">/ {loc.nights} Nights</span>
+                        )}
+                      </div>
+                      <Link
+                        href={`/packages/search?location=${encodeURIComponent(loc.name)}`}
+                        className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white text-[11px] font-bold px-6 py-2.5 rounded-full transition-all shadow-md shadow-orange-500/20"
+                      >
+                        See More
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </main>
       <Footer />

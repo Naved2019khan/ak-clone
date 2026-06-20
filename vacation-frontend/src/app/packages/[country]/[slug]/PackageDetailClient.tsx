@@ -149,7 +149,10 @@ export default function PackageDetailClient({ slug, country }: { slug: string; c
     return rows;
   };
 
-  const getImageUrl = (img: string) => img.startsWith("http") ? img : `http://localhost:5000/${img}`;
+  const getImageUrl = (img: string) => {
+    if (img.startsWith("http")) return img;
+    return `http://localhost:5000/${img.replace(/\\/g, "/")}`;
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const digits = formData.phone.replace(/[^0-9]/g, "");

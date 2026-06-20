@@ -45,10 +45,18 @@ exports.getById = async (req, res) => {
 // @route   GET /api/packages/slug/:slug
 exports.getBySlug = async (req, res) => {
   try {
-    const pkg = await Package.findOne({ slug: req.params.slug })
+    let pkg = await Package.findOne({ slug: req.params.slug })
       .populate("country", "name code image")
       .populate("location", "name image")
       .populate("travelType", "name image");
+
+    // Fallback: try by _id if slug not found
+    if (!pkg && req.params.slug.match(/^[0-9a-fA-F]{24}$/)) {
+      pkg = await Package.findById(req.params.slug)
+        .populate("country", "name code image")
+        .populate("location", "name image")
+        .populate("travelType", "name image");
+    }
 
     if (!pkg) {
       return res.status(404).json({ success: false, message: "Package not found" });

@@ -1,5 +1,55 @@
 const Location = require("../models/Location");
 
+// @desc    Search locations
+// @route   GET /api/locations/search
+exports.search = async (req, res) => {
+  try {
+    const { q } = req.query;
+    const filter = { isActive: true };
+
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      filter.$or = [
+        { name: regex },
+        { description: regex },
+        { tag: regex },
+      ];
+    }
+
+    // First find matching locations by name/description/tag
+    let locations = await Location.find(filter)
+      .populate("country", "name code")
+      .populate("packageTypes", "name")
+      .sort({ rating: -1, name: 1 })
+      .limit(50);
+
+    // If query provided, also search by country name
+    if (q && q.trim() && locations.length < 50) {
+      const Country = require("../models/Country");
+      const regex = new RegExp(q.trim(), "i");
+      const matchingCountries = await Country.find({ name: regex }).select("_id");
+      if (matchingCountries.length > 0) {
+        const countryIds = matchingCountries.map((c) => c._id);
+        const existingIds = locations.map((l) => l._id.toString());
+        const countryLocations = await Location.find({
+          isActive: true,
+          country: { $in: countryIds },
+          _id: { $nin: existingIds },
+        })
+          .populate("country", "name code")
+          .populate("packageTypes", "name")
+          .sort({ rating: -1, name: 1 })
+          .limit(50 - locations.length);
+        locations = [...locations, ...countryLocations];
+      }
+    }
+
+    res.json({ success: true, data: locations });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get all locations
 // @route   GET /api/locations
 exports.getAll = async (req, res) => {

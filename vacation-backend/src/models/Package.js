@@ -76,4 +76,17 @@ const packageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Auto-generate slug from title before saving
+packageSchema.pre("save", function (next) {
+  if (this.isModified("title") || !this.slug) {
+    this.slug = this.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+  }
+  next();
+});
+
 module.exports = mongoose.model("Package", packageSchema);
