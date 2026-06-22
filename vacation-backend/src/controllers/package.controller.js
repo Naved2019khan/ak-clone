@@ -1,4 +1,5 @@
 const Package = require("../models/Package");
+const { uploadToCloudinary, deleteFromCloudinary, getPublicIdFromUrl } = require("../middleware/upload");
 
 // @desc    Get all packages
 // @route   GET /api/packages
@@ -88,7 +89,15 @@ exports.create = async (req, res) => {
       isFeatured,
     } = req.body;
 
-    const images = req.files ? req.files.map((file) => file.path) : [];
+    // Upload images to Cloudinary
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map((file) =>
+        uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
+      );
+      const results = await Promise.all(uploadPromises);
+      images = results.map((r) => r.secure_url);
+    }
 
     const pkg = await Package.create({
       title,
@@ -127,7 +136,12 @@ exports.update = async (req, res) => {
     const updateData = { ...req.body };
 
     if (req.files && req.files.length > 0) {
-      updateData.images = req.files.map((file) => file.path);
+      // Upload new images to Cloudinary
+      const uploadPromises = req.files.map((file) =>
+        uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
+      );
+      const results = await Promise.all(uploadPromises);
+      updateData.images = results.map((r) => r.secure_url);
     }
 
     // Parse JSON strings if sent from FormData
@@ -161,6 +175,33 @@ exports.update = async (req, res) => {
     if (!pkg) {
       return res.status(404).json({ success: false, message: "Package not found" });
     }
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a single image from package
+// @route   DELETE /api/packages/:id/image
+exports.deleteImage = async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const pkg = await Package.findById(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: "Package not found" });
+    }
+
+    // Delete from Cloudinary
+    if (imageUrl) {
+      const publicId = getPublicIdFromUrl(imageUrl);
+      if (publicId) {
+        await deleteFromCloudinary(publicId).catch(() => {});
+      }
+      // Remove from images array
+      pkg.images = pkg.images.filter((img) => img !== imageUrl);
+      await pkg.save();
+    }
+
     res.json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

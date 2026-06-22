@@ -8,6 +8,7 @@ router.get("/", controller.getAll);
 router.get("/:id", controller.getById);
 router.post("/", upload.single("image"), controller.create);
 router.put("/:id", upload.single("image"), controller.update);
+router.delete("/:id/image", controller.deleteImage);
 router.delete("/:id", controller.remove);
 
 module.exports = router;

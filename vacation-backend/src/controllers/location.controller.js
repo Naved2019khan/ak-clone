@@ -1,4 +1,5 @@
 const Location = require("../models/Location");
+const { uploadToCloudinary, deleteFromCloudinary, getPublicIdFromUrl } = require("../middleware/upload");
 
 // @desc    Search locations
 // @route   GET /api/locations/search
@@ -88,7 +89,12 @@ exports.getById = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, country, description, price, strikePrice, rating, reviews, days, nights, tag, packageTypes } = req.body;
-    const image = req.file ? req.file.path : "";
+    
+    let image = "";
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/locations" });
+      image = result.secure_url;
+    }
 
     // Parse packageTypes if it's a JSON string
     let parsedPackageTypes = packageTypes;
@@ -122,9 +128,21 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
+    
     if (req.file) {
-      updateData.image = req.file.path;
+      // Delete old image from Cloudinary if exists
+      const existingLocation = await Location.findById(req.params.id);
+      if (existingLocation && existingLocation.image) {
+        const publicId = getPublicIdFromUrl(existingLocation.image);
+        if (publicId) {
+          await deleteFromCloudinary(publicId).catch(() => {});
+        }
+      }
+      // Upload new image
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/locations" });
+      updateData.image = result.secure_url;
     }
+    
     // Parse packageTypes if it's a JSON string
     if (typeof updateData.packageTypes === "string") {
       try { updateData.packageTypes = JSON.parse(updateData.packageTypes); } catch { updateData.packageTypes = []; }
@@ -143,6 +161,28 @@ exports.update = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: "Location already exists in this country" });
     }
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete location image
+// @route   DELETE /api/locations/:id/image
+exports.deleteImage = async (req, res) => {
+  try {
+    const location = await Location.findById(req.params.id);
+    if (!location) {
+      return res.status(404).json({ success: false, message: "Location not found" });
+    }
+    if (location.image) {
+      const publicId = getPublicIdFromUrl(location.image);
+      if (publicId) {
+        await deleteFromCloudinary(publicId).catch(() => {});
+      }
+      location.image = "";
+      await location.save();
+    }
+    res.json({ success: true, message: "Image deleted" });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

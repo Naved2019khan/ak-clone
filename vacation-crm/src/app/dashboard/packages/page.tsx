@@ -225,7 +225,7 @@ export default function PackagesPage() {
     // Show existing images as previews
     if (item.images?.length > 0) {
       setImagePreviews(
-        item.images.map((img) => img.startsWith("http") ? img : `http://localhost:5000/${img}`)
+        item.images.map((img) => img.startsWith("http") ? img : `http://localhost:5000/${img.replace(/\\/g, "/")}`)
       );
     } else {
       setImagePreviews([]);
@@ -611,9 +611,29 @@ export default function PackagesPage() {
                           alt={`Preview ${idx + 1}`}
                           className="w-full h-20 object-cover rounded-lg border border-gray-200"
                         />
-                        <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <span className="text-white text-xs font-medium">{idx + 1}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // If editing and this is an existing Cloudinary image, delete from server
+                            if (editing && src.startsWith("http") && !src.startsWith("blob:")) {
+                              try {
+                                await api.delete(`/packages/${editing._id}/image`, { data: { imageUrl: src } });
+                                toast.success("Image deleted");
+                                setImagePreviews(imagePreviews.filter((_, i) => i !== idx));
+                                fetchData();
+                              } catch {
+                                toast.error("Failed to delete image");
+                              }
+                            } else {
+                              // Just remove preview for newly selected files
+                              setImagePreviews(imagePreviews.filter((_, i) => i !== idx));
+                            }
+                          }}
+                          className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete image"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     ))}
                   </div>

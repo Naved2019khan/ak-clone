@@ -228,9 +228,9 @@ export default function LocationsPage() {
                     <td className="px-5 py-3">
                       {item.image ? (
                         <img
-                          src={item.image.startsWith("http") ? item.image : `http://localhost:5000/${item.image}`}
+                          src={item.image.startsWith("http") ? item.image : `http://localhost:5000/${item.image.replace(/\\/g, "/")}`}
                           alt={item.name}
-                          className="w-14 h-10 rounded-lg object-cover"
+                          className="w-14 h-10 rounded-lg object-cover border border-gray-100"
                         />
                       ) : (
                         <div className="w-14 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-[10px]">
@@ -459,6 +459,52 @@ export default function LocationsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                {/* Current image preview */}
+                {editing && editing.image && !imageFile && (
+                  <div className="relative mb-3 inline-block">
+                    <img
+                      src={editing.image}
+                      alt={editing.name}
+                      className="w-full h-40 rounded-xl object-cover border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm("Delete this image?")) return;
+                        try {
+                          await api.delete(`/locations/${editing._id}/image`);
+                          toast.success("Image deleted");
+                          setEditing({ ...editing, image: "" });
+                          fetchData();
+                        } catch {
+                          toast.error("Failed to delete image");
+                        }
+                      }}
+                      className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                      title="Delete image"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                {/* New file preview */}
+                {imageFile && (
+                  <div className="relative mb-3 inline-block">
+                    <img
+                      src={URL.createObjectURL(imageFile)}
+                      alt="Preview"
+                      className="w-full h-40 rounded-xl object-cover border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImageFile(null)}
+                      className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                      title="Remove"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 <input
                   type="file"
                   accept="image/*"
