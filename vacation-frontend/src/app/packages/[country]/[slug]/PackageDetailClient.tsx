@@ -15,6 +15,7 @@ interface ItineraryItem {
   title: string;
   description: string;
   activities?: string[];
+  image?: string;
 }
 
 interface PackageData {
@@ -35,6 +36,71 @@ interface PackageData {
   exclusions: string[];
   itinerary: ItineraryItem[];
   isFeatured: boolean;
+}
+
+// Itinerary Image Slider Component
+function ItineraryImageSlider({ items }: { items: ItineraryItem[] }) {
+  const [current, setCurrent] = useState(0);
+  const total = items.length;
+
+  const prev = () => setCurrent((c) => (c - 1 + total) % total);
+  const next = () => setCurrent((c) => (c + 1) % total);
+
+  if (total === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="relative w-full h-56 md:h-72 rounded-xl overflow-hidden group">
+        <img
+          src={items[current].image!}
+          alt={items[current].title}
+          className="w-full h-full object-cover transition-all duration-300"
+        />
+        {/* Overlay with day info */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 bg-white/20 backdrop-blur-sm text-white text-xs font-bold rounded-md flex items-center justify-center">
+              {items[current].day}
+            </span>
+            <span className="text-white font-semibold text-sm">{items[current].title}</span>
+          </div>
+        </div>
+        {/* Navigation arrows */}
+        {total > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronLeft className="w-4 h-4 text-gray-700" />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronRight className="w-4 h-4 text-gray-700" />
+            </button>
+          </>
+        )}
+        {/* Slide counter */}
+        <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-full">
+          {current + 1} / {total}
+        </div>
+      </div>
+      {/* Thumbnail dots */}
+      {total > 1 && (
+        <div className="flex justify-center gap-1.5 mt-3">
+          {items.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrent(idx)}
+              className={`w-2 h-2 rounded-full transition-all ${idx === current ? "bg-orange-500 w-5" : "bg-gray-300 hover:bg-gray-400"}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PackageDetailClient({ slug, country }: { slug: string; country: string }) {
@@ -383,6 +449,12 @@ export default function PackageDetailClient({ slug, country }: { slug: string; c
                     <p className="text-sm text-gray-500">{pkg.itinerary.length} days of adventure</p>
                   </div>
                 </div>
+
+                {/* Itinerary Image Slider */}
+                {pkg.itinerary.some((item) => item.image) && (
+                  <ItineraryImageSlider items={pkg.itinerary.filter((item) => item.image)} />
+                )}
+
                 <div className="space-y-3">
                   {pkg.itinerary.map((item) => (
                     <div key={item.day} className={`border rounded-xl overflow-hidden transition-all ${expandedDay === item.day ? "border-orange-200 bg-orange-50/30 shadow-sm" : "border-gray-100 hover:border-gray-200"}`}>
@@ -395,6 +467,11 @@ export default function PackageDetailClient({ slug, country }: { slug: string; c
                       </button>
                       {expandedDay === item.day && (
                         <div className="px-5 pb-4 pl-[4.5rem]">
+                          {item.image && (
+                            <div className="mb-3 w-full h-44 rounded-xl overflow-hidden">
+                              <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                            </div>
+                          )}
                           <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
                           {item.activities && item.activities.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-3">

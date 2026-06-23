@@ -47,6 +47,7 @@ const packageSchema = new mongoose.Schema(
         title: { type: String, required: true },
         description: { type: String, default: "" },
         activities: [{ type: String }],
+        image: { type: String, default: "" },
       },
     ],
     duration: {

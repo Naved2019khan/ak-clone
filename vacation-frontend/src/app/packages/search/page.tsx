@@ -788,18 +788,18 @@ function PackageCard({
     <article className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group">
       <div className="flex flex-col sm:flex-row">
         {/* Image carousel - clean, no overlays */}
-        <div className="relative sm:w-[320px] h-56 sm:h-auto shrink-0 overflow-hidden">
+        <div className="relative sm:w-[320px] h-56 sm:h-full sm:min-h-full shrink-0 overflow-hidden">
           {maxImages.length > 0 ? (
             <img
               src={getSingleImageUrl(maxImages[currentImage])}
               alt={`${pkg.title} - ${currentImage + 1}`}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
           ) : (
             <img
               src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80"
               alt={pkg.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
           )}
 

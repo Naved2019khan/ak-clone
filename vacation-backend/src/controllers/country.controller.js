@@ -1,4 +1,5 @@
 const Country = require("../models/Country");
+const { uploadToCloudinary, deleteFromCloudinary, getPublicIdFromUrl } = require("../middleware/upload");
 
 // @desc    Get all countries
 // @route   GET /api/countries
@@ -30,7 +31,12 @@ exports.getById = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, code, description } = req.body;
-    const image = req.file ? req.file.path : "";
+
+    let image = "";
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/countries" });
+      image = result.secure_url;
+    }
 
     const country = await Country.create({ name, code, description, image });
     res.status(201).json({ success: true, data: country });
@@ -47,8 +53,19 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
+
     if (req.file) {
-      updateData.image = req.file.path;
+      // Delete old image from Cloudinary if exists
+      const existingCountry = await Country.findById(req.params.id);
+      if (existingCountry && existingCountry.image) {
+        const publicId = getPublicIdFromUrl(existingCountry.image);
+        if (publicId) {
+          await deleteFromCloudinary(publicId).catch(() => {});
+        }
+      }
+      // Upload new image
+      const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/countries" });
+      updateData.image = result.secure_url;
     }
 
     const country = await Country.findByIdAndUpdate(req.params.id, updateData, {
@@ -75,6 +92,13 @@ exports.remove = async (req, res) => {
     const country = await Country.findByIdAndDelete(req.params.id);
     if (!country) {
       return res.status(404).json({ success: false, message: "Country not found" });
+    }
+    // Delete image from Cloudinary if exists
+    if (country.image) {
+      const publicId = getPublicIdFromUrl(country.image);
+      if (publicId) {
+        await deleteFromCloudinary(publicId).catch(() => {});
+      }
     }
     res.json({ success: true, message: "Country deleted" });
   } catch (error) {

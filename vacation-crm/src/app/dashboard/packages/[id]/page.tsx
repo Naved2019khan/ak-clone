@@ -14,6 +14,7 @@ interface ItineraryDay {
   title: string;
   description: string;
   activities: string[];
+  image?: string;
 }
 
 interface TravelType { _id: string; name: string; }
@@ -140,13 +141,18 @@ export default function PackageDetailPage() {
   const [inclusions, setInclusions] = useState<string[]>([]);
   const [exclusions, setExclusions] = useState<string[]>([]);
 
-  const [imageFiles, setImageFiles] = useState<FileList | null>(null);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const [deletingImage, setDeletingImage] = useState<string | null>(null);
+  const [confirmDeleteImage, setConfirmDeleteImage] = useState<string | null>(null);
 
   // Itinerary state
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([]);
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [dayForm, setDayForm] = useState({ title: "", description: "", activities: "" });
+  const [itineraryImageFiles, setItineraryImageFiles] = useState<Record<number, File>>({});
+  const [itineraryImagePreviews, setItineraryImagePreviews] = useState<Record<number, string>>({});
 
   const fetchData = async () => {
     try {
@@ -190,9 +196,9 @@ export default function PackageDetailPage() {
     setAmenities(data.amenities || []);
     setInclusions(data.inclusions || []);
     setExclusions(data.exclusions || []);
-    if (data.images?.length > 0) {
-      setImagePreviews(data.images.map((img) => getImageUrl(img)));
-    }
+    setExistingImages(data.images || []);
+    setNewImageFiles([]);
+    setNewImagePreviews([]);
   };
 
   useEffect(() => { fetchData(); }, [id]);
@@ -206,13 +212,39 @@ export default function PackageDetailPage() {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    setImageFiles(files);
-    if (files) {
-      const previews: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        previews.push(URL.createObjectURL(files[i]));
-      }
-      setImagePreviews(previews);
+    if (files && files.length > 0) {
+      const filesArray = Array.from(files);
+      const previews = filesArray.map((f) => URL.createObjectURL(f));
+      setNewImageFiles((prev) => [...prev, ...filesArray]);
+      setNewImagePreviews((prev) => [...prev, ...previews]);
+    }
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const handleRemoveNewImage = (index: number) => {
+    URL.revokeObjectURL(newImagePreviews[index]);
+    setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDeleteExistingImage = async (imageUrl: string) => {
+    setConfirmDeleteImage(imageUrl);
+  };
+
+  const confirmImageDelete = async () => {
+    if (!confirmDeleteImage) return;
+    const imageUrl = confirmDeleteImage;
+    setConfirmDeleteImage(null);
+    setDeletingImage(imageUrl);
+    try {
+      await api.delete(`/packages/${id}/image`, { data: { imageUrl } });
+      setExistingImages((prev) => prev.filter((img) => img !== imageUrl));
+      toast.success("Image deleted");
+    } catch {
+      toast.error("Failed to delete image");
+    } finally {
+      setDeletingImage(null);
     }
   };
 
@@ -237,17 +269,24 @@ export default function PackageDetailPage() {
     formData.append("rating", form.rating || "0");
     formData.append("itinerary", JSON.stringify(itinerary));
 
-    if (imageFiles) {
-      for (let i = 0; i < imageFiles.length; i++) {
-        formData.append("images", imageFiles[i]);
+    if (newImageFiles.length > 0) {
+      for (let i = 0; i < newImageFiles.length; i++) {
+        formData.append("images", newImageFiles[i]);
       }
     }
+
+    // Append itinerary images
+    Object.entries(itineraryImageFiles).forEach(([index, file]) => {
+      formData.append(`itineraryImage_${index}`, file);
+    });
 
     try {
       await api.put(`/packages/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Package updated successfully");
+      setItineraryImageFiles({});
+      setItineraryImagePreviews({});
       fetchData();
     } catch {
       toast.error("Failed to update package");
@@ -280,6 +319,42 @@ export default function PackageDetailPage() {
     const updated = itinerary.filter((_, i) => i !== index).map((item, i) => ({ ...item, day: i + 1 }));
     setItinerary(updated);
     if (editingDay === index) setEditingDay(null);
+    // Clean up itinerary image state for deleted/reindexed days
+    const newFiles: Record<number, File> = {};
+    const newPreviews: Record<number, string> = {};
+    Object.entries(itineraryImageFiles).forEach(([key, file]) => {
+      const k = Number(key);
+      if (k < index) { newFiles[k] = file; newPreviews[k] = itineraryImagePreviews[k]; }
+      else if (k > index) { newFiles[k - 1] = file; newPreviews[k - 1] = itineraryImagePreviews[k]; }
+    });
+    setItineraryImageFiles(newFiles);
+    setItineraryImagePreviews(newPreviews);
+  };
+
+  const handleItineraryImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Revoke old preview if exists
+      if (itineraryImagePreviews[index]) {
+        URL.revokeObjectURL(itineraryImagePreviews[index]);
+      }
+      setItineraryImageFiles((prev) => ({ ...prev, [index]: file }));
+      setItineraryImagePreviews((prev) => ({ ...prev, [index]: URL.createObjectURL(file) }));
+    }
+    e.target.value = "";
+  };
+
+  const handleRemoveItineraryImage = (index: number) => {
+    // Remove the new file selection
+    if (itineraryImagePreviews[index]) {
+      URL.revokeObjectURL(itineraryImagePreviews[index]);
+    }
+    setItineraryImageFiles((prev) => { const n = { ...prev }; delete n[index]; return n; });
+    setItineraryImagePreviews((prev) => { const n = { ...prev }; delete n[index]; return n; });
+    // Also clear existing image from itinerary data
+    const updated = [...itinerary];
+    updated[index] = { ...updated[index], image: "" };
+    setItinerary(updated);
   };
 
   if (loading) {
@@ -589,6 +664,61 @@ export default function PackageDetailPage() {
             {/* Images */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               <h3 className="text-base font-semibold text-gray-900 mb-3">Images</h3>
+
+              {/* Existing images from Cloudinary */}
+              {existingImages.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {existingImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={getImageUrl(img)}
+                        alt={`Image ${idx + 1}`}
+                        className="w-full h-20 object-cover rounded-lg border border-gray-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExistingImage(img)}
+                        disabled={deletingImage === img}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      {deletingImage === img && (
+                        <div className="absolute inset-0 bg-white/60 rounded-lg flex items-center justify-center">
+                          <span className="text-xs text-gray-500">Deleting...</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* New images to upload */}
+              {newImagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {newImagePreviews.map((src, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={src}
+                        alt={`New ${idx + 1}`}
+                        className="w-full h-20 object-cover rounded-lg border-2 border-dashed border-orange-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNewImage(idx)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-gray-700 hover:bg-gray-900 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-medium">
+                        New
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload button */}
               <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors">
                 <input
                   type="file"
@@ -600,16 +730,15 @@ export default function PackageDetailPage() {
                 />
                 <label htmlFor="pkg-images-edit" className="cursor-pointer flex flex-col items-center gap-2">
                   <ImagePlus className="w-7 h-7 text-gray-400" />
-                  <span className="text-xs text-gray-500">Upload new images</span>
-                  <span className="text-[11px] text-gray-400">Replaces existing</span>
+                  <span className="text-xs text-gray-500">Click to add images</span>
+                  <span className="text-[11px] text-gray-400">One or multiple files</span>
                 </label>
               </div>
-              {imagePreviews.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  {imagePreviews.map((src, idx) => (
-                    <img key={idx} src={src} alt={`Preview ${idx + 1}`} className="w-full h-16 object-cover rounded-lg border border-gray-100" />
-                  ))}
-                </div>
+
+              {(existingImages.length > 0 || newImagePreviews.length > 0) && (
+                <p className="text-[11px] text-gray-400 mt-2 text-center">
+                  {existingImages.length} saved &bull; {newImagePreviews.length} new to upload
+                </p>
               )}
             </div>
 
@@ -743,6 +872,53 @@ export default function PackageDetailPage() {
                         placeholder="Activities (comma separated)"
                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
                       />
+                      {/* Itinerary Day Image Upload */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Day Image</label>
+                        {(itineraryImagePreviews[index] || day.image) ? (
+                          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-gray-200 group">
+                            <img
+                              src={itineraryImagePreviews[index] || getImageUrl(day.image!)}
+                              alt={`Day ${day.day}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                              <label
+                                htmlFor={`itinerary-img-${index}`}
+                                className="px-3 py-1.5 bg-white text-gray-700 text-xs font-medium rounded-lg cursor-pointer hover:bg-gray-100"
+                              >
+                                Change
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItineraryImage(index)}
+                                className="px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            {itineraryImagePreviews[index] && (
+                              <span className="absolute top-2 left-2 text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-medium">
+                                New
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors">
+                            <label htmlFor={`itinerary-img-${index}`} className="cursor-pointer flex flex-col items-center gap-1.5">
+                              <ImagePlus className="w-6 h-6 text-gray-400" />
+                              <span className="text-xs text-gray-500">Click to add day image</span>
+                            </label>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id={`itinerary-img-${index}`}
+                          className="hidden"
+                          onChange={(e) => handleItineraryImageChange(index, e)}
+                        />
+                      </div>
                     </div>
 
                   ) : (
@@ -751,7 +927,7 @@ export default function PackageDetailPage() {
                         <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
                           <span className="text-sm font-bold text-orange-600">{day.day}</span>
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-semibold text-gray-900">{day.title || "Untitled Day"}</h4>
                           {day.description && <p className="text-sm text-gray-500 mt-1">{day.description}</p>}
                           {day.activities?.length > 0 && (
@@ -759,6 +935,15 @@ export default function PackageDetailPage() {
                               {day.activities.map((act, ai) => (
                                 <span key={ai} className="px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-md">{act}</span>
                               ))}
+                            </div>
+                          )}
+                          {(itineraryImagePreviews[index] || day.image) && (
+                            <div className="mt-3 w-full max-w-xs h-28 rounded-lg overflow-hidden border border-gray-100">
+                              <img
+                                src={itineraryImagePreviews[index] || getImageUrl(day.image!)}
+                                alt={`Day ${day.day}`}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                           )}
                         </div>
@@ -827,20 +1012,20 @@ export default function PackageDetailPage() {
               <div className="lg:col-span-2">
                 <div className="flex gap-3">
                   <div className="relative rounded-2xl overflow-hidden bg-gray-100 flex-1 aspect-[4/3]">
-                    {imagePreviews.length > 0 ? (
-                      <img src={imagePreviews[0]} alt={form.title} className="w-full h-full object-cover" />
+                    {(existingImages.length > 0 || newImagePreviews.length > 0) ? (
+                      <img src={existingImages.length > 0 ? getImageUrl(existingImages[0]) : newImagePreviews[0]} alt={form.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-300">No Image</div>
                     )}
-                    {imagePreviews.length > 0 && (
+                    {(existingImages.length + newImagePreviews.length) > 0 && (
                       <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-full">
-                        1 / {imagePreviews.length}
+                        1 / {existingImages.length + newImagePreviews.length}
                       </div>
                     )}
                   </div>
-                  {imagePreviews.length > 1 && (
+                  {(existingImages.length + newImagePreviews.length) > 1 && (
                     <div className="flex flex-col gap-2 overflow-y-auto max-h-[280px]">
-                      {imagePreviews.map((img, idx) => (
+                      {[...existingImages.map((img) => getImageUrl(img)), ...newImagePreviews].map((img, idx) => (
                         <div key={idx} className={`shrink-0 w-[56px] h-[56px] rounded-lg overflow-hidden ${idx === 0 ? "ring-2 ring-orange-500 ring-offset-1" : "opacity-60"}`}>
                           <img src={img} alt="" className="w-full h-full object-cover" />
                         </div>
@@ -964,7 +1149,7 @@ export default function PackageDetailPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      {itinerary.map((day) => (
+                      {itinerary.map((day, idx) => (
                         <div key={day.day} className="border border-gray-100 rounded-xl overflow-hidden">
                           <div className="flex items-center gap-4 px-4 py-3">
                             <span className="w-8 h-8 bg-gradient-to-br from-orange-500 to-rose-500 text-white text-xs font-bold rounded-lg flex items-center justify-center shrink-0">
@@ -972,8 +1157,17 @@ export default function PackageDetailPage() {
                             </span>
                             <span className="font-semibold text-gray-900 text-sm">{day.title || "Untitled"}</span>
                           </div>
-                          {(day.description || (day.activities && day.activities.length > 0)) && (
+                          {(day.description || (day.activities && day.activities.length > 0) || itineraryImagePreviews[idx] || day.image) && (
                             <div className="px-4 pb-3 pl-16">
+                              {(itineraryImagePreviews[idx] || day.image) && (
+                                <div className="mb-2 w-full h-36 rounded-lg overflow-hidden">
+                                  <img
+                                    src={itineraryImagePreviews[idx] || getImageUrl(day.image!)}
+                                    alt={`Day ${day.day}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              )}
                               {day.description && <p className="text-gray-600 text-xs leading-relaxed">{day.description}</p>}
                               {day.activities && day.activities.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -1011,6 +1205,38 @@ export default function PackageDetailPage() {
                   </div>
                   <p className="text-[10px] text-gray-400 text-center mt-3">No payment required now. We&apos;ll confirm availability first.</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Image Confirmation Modal */}
+      {confirmDeleteImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmDeleteImage(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Image?</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                This will permanently remove the image. This action cannot be undone.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setConfirmDeleteImage(null)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmImageDelete}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>

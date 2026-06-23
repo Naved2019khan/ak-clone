@@ -89,14 +89,30 @@ exports.create = async (req, res) => {
       isFeatured,
     } = req.body;
 
-    // Upload images to Cloudinary
+    // Upload package images to Cloudinary
     let images = [];
-    if (req.files && req.files.length > 0) {
-      const uploadPromises = req.files.map((file) =>
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      const uploadPromises = req.files.images.map((file) =>
         uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
       );
       const results = await Promise.all(uploadPromises);
       images = results.map((r) => r.secure_url);
+    }
+
+    // Parse itinerary
+    let parsedItinerary = typeof itinerary === "string" ? JSON.parse(itinerary) : itinerary || [];
+
+    // Upload itinerary images to Cloudinary
+    if (req.files) {
+      for (let i = 0; i < parsedItinerary.length; i++) {
+        const fieldName = `itineraryImage_${i}`;
+        if (req.files[fieldName] && req.files[fieldName].length > 0) {
+          const result = await uploadToCloudinary(req.files[fieldName][0].buffer, {
+            folder: "vacation/packages/itinerary",
+          });
+          parsedItinerary[i].image = result.secure_url;
+        }
+      }
     }
 
     const pkg = await Package.create({
@@ -112,7 +128,7 @@ exports.create = async (req, res) => {
       amenities: typeof amenities === "string" ? JSON.parse(amenities) : amenities,
       inclusions: typeof inclusions === "string" ? JSON.parse(inclusions) : inclusions,
       exclusions: typeof exclusions === "string" ? JSON.parse(exclusions) : exclusions,
-      itinerary: typeof itinerary === "string" ? JSON.parse(itinerary) : itinerary || [],
+      itinerary: parsedItinerary,
       images,
       isFeatured,
     });
@@ -135,13 +151,17 @@ exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
 
-    if (req.files && req.files.length > 0) {
-      // Upload new images to Cloudinary
-      const uploadPromises = req.files.map((file) =>
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      // Upload new package images to Cloudinary
+      const uploadPromises = req.files.images.map((file) =>
         uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
       );
       const results = await Promise.all(uploadPromises);
-      updateData.images = results.map((r) => r.secure_url);
+      const newImageUrls = results.map((r) => r.secure_url);
+
+      // Append new images to existing ones
+      const existing = await Package.findById(req.params.id).select("images");
+      updateData.images = [...(existing?.images || []), ...newImageUrls];
     }
 
     // Parse JSON strings if sent from FormData
@@ -162,6 +182,26 @@ exports.update = async (req, res) => {
     }
     if (typeof updateData.itinerary === "string") {
       updateData.itinerary = JSON.parse(updateData.itinerary);
+    }
+
+    // Upload itinerary images to Cloudinary
+    if (req.files && updateData.itinerary) {
+      for (let i = 0; i < updateData.itinerary.length; i++) {
+        const fieldName = `itineraryImage_${i}`;
+        if (req.files[fieldName] && req.files[fieldName].length > 0) {
+          // Delete old itinerary image from Cloudinary if exists
+          if (updateData.itinerary[i].image) {
+            const publicId = getPublicIdFromUrl(updateData.itinerary[i].image);
+            if (publicId) {
+              await deleteFromCloudinary(publicId).catch(() => {});
+            }
+          }
+          const result = await uploadToCloudinary(req.files[fieldName][0].buffer, {
+            folder: "vacation/packages/itinerary",
+          });
+          updateData.itinerary[i].image = result.secure_url;
+        }
+      }
     }
 
     const pkg = await Package.findByIdAndUpdate(req.params.id, updateData, {

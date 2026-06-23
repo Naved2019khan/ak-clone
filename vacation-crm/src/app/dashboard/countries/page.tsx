@@ -132,7 +132,7 @@ export default function CountriesPage() {
                   <td className="px-6 py-4">
                     {item.image ? (
                       <img
-                        src={`http://localhost:5000/${item.image}`}
+                        src={item.image.startsWith("http") ? item.image : `http://localhost:5000/${item.image.replace(/\\/g, "/")}`}
                         alt={item.name}
                         className="w-12 h-12 rounded-lg object-cover"
                       />
