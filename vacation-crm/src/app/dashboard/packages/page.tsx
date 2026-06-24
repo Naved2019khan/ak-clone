@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, X, ImagePlus, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { uploadMultipleToCloudinary } from "@/lib/cloudinary";
 
 // Tag Input for the modal
 function ModalTagInput({
@@ -237,37 +238,36 @@ export default function PackagesPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("title", form.title);
-    formData.append("description", form.description);
-    formData.append("country", form.country);
-    formData.append("location", form.location);
-    formData.append("travelType", form.travelType);
-    formData.append("price", form.price);
-    formData.append("strikePrice", form.strikePrice || "0");
-    formData.append("duration", JSON.stringify({ days: Number(form.days), nights: Number(form.nights) }));
-    formData.append("highlights", JSON.stringify(highlights));
-    formData.append("amenities", JSON.stringify(amenities));
-    formData.append("inclusions", JSON.stringify(inclusions));
-    formData.append("exclusions", JSON.stringify(exclusions));
-    formData.append("isFeatured", String(form.isFeatured));
-
-    if (imageFiles) {
-      for (let i = 0; i < imageFiles.length; i++) {
-        formData.append("images", imageFiles[i]);
-      }
-    }
-
     try {
+      // Upload images to Cloudinary first if files are selected
+      let imageUrls: string[] = [];
+      if (imageFiles && imageFiles.length > 0) {
+        const files = Array.from(imageFiles);
+        imageUrls = await uploadMultipleToCloudinary(files, "vacation/packages");
+      }
+
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        description: form.description,
+        country: form.country,
+        location: form.location,
+        travelType: form.travelType,
+        price: form.price,
+        strikePrice: form.strikePrice || "0",
+        duration: { days: Number(form.days), nights: Number(form.nights) },
+        highlights,
+        amenities,
+        inclusions,
+        exclusions,
+        isFeatured: form.isFeatured,
+      };
+      if (imageUrls.length > 0) payload.images = imageUrls;
+
       if (editing) {
-        await api.put(`/packages/${editing._id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.put(`/packages/${editing._id}`, payload);
         toast.success("Package updated");
       } else {
-        await api.post("/packages", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post("/packages", payload);
         toast.success("Package created");
       }
       setModalOpen(false);

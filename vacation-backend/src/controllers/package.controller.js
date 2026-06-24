@@ -87,11 +87,16 @@ exports.create = async (req, res) => {
       exclusions,
       itinerary,
       isFeatured,
+      images: imageUrls,
     } = req.body;
 
-    // Upload package images to Cloudinary
+    // Handle images: either from body URLs (client-side upload) or multer files (fallback)
     let images = [];
-    if (req.files && req.files.images && req.files.images.length > 0) {
+    if (imageUrls && Array.isArray(imageUrls) && imageUrls.length > 0) {
+      // Images already uploaded to Cloudinary from client
+      images = imageUrls;
+    } else if (req.files && req.files.images && req.files.images.length > 0) {
+      // Fallback: upload via multer buffer
       const uploadPromises = req.files.images.map((file) =>
         uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
       );
@@ -102,7 +107,7 @@ exports.create = async (req, res) => {
     // Parse itinerary
     let parsedItinerary = typeof itinerary === "string" ? JSON.parse(itinerary) : itinerary || [];
 
-    // Upload itinerary images to Cloudinary
+    // Upload itinerary images to Cloudinary (fallback for multer uploads)
     if (req.files) {
       for (let i = 0; i < parsedItinerary.length; i++) {
         const fieldName = `itineraryImage_${i}`;
@@ -151,8 +156,12 @@ exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
 
-    if (req.files && req.files.images && req.files.images.length > 0) {
-      // Upload new package images to Cloudinary
+    // Handle images: either from body (client-side upload) or multer files (fallback)
+    if (updateData.images && Array.isArray(updateData.images)) {
+      // Images array sent directly from client (already Cloudinary URLs)
+      // Keep as-is — client manages the full array
+    } else if (req.files && req.files.images && req.files.images.length > 0) {
+      // Fallback: upload via multer buffer
       const uploadPromises = req.files.images.map((file) =>
         uploadToCloudinary(file.buffer, { folder: "vacation/packages" })
       );
@@ -184,7 +193,7 @@ exports.update = async (req, res) => {
       updateData.itinerary = JSON.parse(updateData.itinerary);
     }
 
-    // Upload itinerary images to Cloudinary
+    // Upload itinerary images to Cloudinary (fallback for multer uploads)
     if (req.files && updateData.itinerary) {
       for (let i = 0; i < updateData.itinerary.length; i++) {
         const fieldName = `itineraryImage_${i}`;

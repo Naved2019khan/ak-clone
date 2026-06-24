@@ -88,10 +88,13 @@ exports.getById = async (req, res) => {
 // @route   POST /api/locations
 exports.create = async (req, res) => {
   try {
-    const { name, country, description, price, strikePrice, rating, reviews, days, nights, tag, packageTypes } = req.body;
+    const { name, country, description, price, strikePrice, rating, reviews, days, nights, tag, packageTypes, image: imageUrl } = req.body;
     
     let image = "";
-    if (req.file) {
+    if (imageUrl) {
+      // Image already uploaded to Cloudinary from client
+      image = imageUrl;
+    } else if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/locations" });
       image = result.secure_url;
     }
@@ -129,8 +132,17 @@ exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
     
-    if (req.file) {
-      // Delete old image from Cloudinary if exists
+    if (req.body.image && req.body.image.startsWith("http")) {
+      // Image already uploaded to Cloudinary from client — delete old one
+      const existingLocation = await Location.findById(req.params.id);
+      if (existingLocation && existingLocation.image && existingLocation.image !== req.body.image) {
+        const publicId = getPublicIdFromUrl(existingLocation.image);
+        if (publicId) {
+          await deleteFromCloudinary(publicId).catch(() => {});
+        }
+      }
+    } else if (req.file) {
+      // Fallback: upload via multer buffer
       const existingLocation = await Location.findById(req.params.id);
       if (existingLocation && existingLocation.image) {
         const publicId = getPublicIdFromUrl(existingLocation.image);
@@ -138,7 +150,6 @@ exports.update = async (req, res) => {
           await deleteFromCloudinary(publicId).catch(() => {});
         }
       }
-      // Upload new image
       const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/locations" });
       updateData.image = result.secure_url;
     }

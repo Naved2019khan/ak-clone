@@ -30,10 +30,14 @@ exports.getById = async (req, res) => {
 // @route   POST /api/countries
 exports.create = async (req, res) => {
   try {
-    const { name, code, description } = req.body;
+    const { name, code, description, image: imageUrl } = req.body;
 
     let image = "";
-    if (req.file) {
+    if (imageUrl) {
+      // Image already uploaded to Cloudinary from client
+      image = imageUrl;
+    } else if (req.file) {
+      // Fallback: upload via multer buffer
       const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/countries" });
       image = result.secure_url;
     }
@@ -54,8 +58,17 @@ exports.update = async (req, res) => {
   try {
     const updateData = { ...req.body };
 
-    if (req.file) {
-      // Delete old image from Cloudinary if exists
+    if (req.body.image && req.body.image.startsWith("http")) {
+      // Image already uploaded to Cloudinary from client — delete old one
+      const existingCountry = await Country.findById(req.params.id);
+      if (existingCountry && existingCountry.image && existingCountry.image !== req.body.image) {
+        const publicId = getPublicIdFromUrl(existingCountry.image);
+        if (publicId) {
+          await deleteFromCloudinary(publicId).catch(() => {});
+        }
+      }
+    } else if (req.file) {
+      // Fallback: upload via multer buffer
       const existingCountry = await Country.findById(req.params.id);
       if (existingCountry && existingCountry.image) {
         const publicId = getPublicIdFromUrl(existingCountry.image);
@@ -63,7 +76,6 @@ exports.update = async (req, res) => {
           await deleteFromCloudinary(publicId).catch(() => {});
         }
       }
-      // Upload new image
       const result = await uploadToCloudinary(req.file.buffer, { folder: "vacation/countries" });
       updateData.image = result.secure_url;
     }

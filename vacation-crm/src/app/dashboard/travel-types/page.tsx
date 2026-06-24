@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface TravelType {
   _id: string;
@@ -55,21 +56,24 @@ export default function TravelTypesPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("name", form.name);
-    formData.append("description", form.description);
-    if (imageFile) formData.append("image", imageFile);
-
     try {
+      // Upload image to Cloudinary first if a file is selected
+      let imageUrl = "";
+      if (imageFile) {
+        imageUrl = await uploadToCloudinary(imageFile, "vacation/travel-types");
+      }
+
+      const payload: Record<string, string> = {
+        name: form.name,
+        description: form.description,
+      };
+      if (imageUrl) payload.image = imageUrl;
+
       if (editing) {
-        await api.put(`/travel-types/${editing._id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.put(`/travel-types/${editing._id}`, payload);
         toast.success("Travel type updated");
       } else {
-        await api.post("/travel-types", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post("/travel-types", payload);
         toast.success("Travel type created");
       }
       setModalOpen(false);
@@ -129,7 +133,7 @@ export default function TravelTypesPage() {
                   <td className="px-6 py-4">
                     {item.image ? (
                       <img
-                        src={`http://localhost:5000/${item.image}`}
+                        src={item.image.startsWith("http") ? item.image : `http://localhost:5000/${item.image}`}
                         alt={item.name}
                         className="w-12 h-12 rounded-lg object-cover"
                       />

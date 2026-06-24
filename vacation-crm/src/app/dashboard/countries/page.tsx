@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface Country {
   _id: string;
@@ -56,22 +57,25 @@ export default function CountriesPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("name", form.name);
-    formData.append("code", form.code);
-    formData.append("description", form.description);
-    if (imageFile) formData.append("image", imageFile);
-
     try {
+      // Upload image to Cloudinary first if a file is selected
+      let imageUrl = "";
+      if (imageFile) {
+        imageUrl = await uploadToCloudinary(imageFile, "vacation/countries");
+      }
+
+      const payload: Record<string, string> = {
+        name: form.name,
+        code: form.code,
+        description: form.description,
+      };
+      if (imageUrl) payload.image = imageUrl;
+
       if (editing) {
-        await api.put(`/countries/${editing._id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.put(`/countries/${editing._id}`, payload);
         toast.success("Country updated");
       } else {
-        await api.post("/countries", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post("/countries", payload);
         toast.success("Country created");
       }
       setModalOpen(false);

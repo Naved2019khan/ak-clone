@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { uploadToCloudinary, uploadMultipleToCloudinary } from "@/lib/cloudinary";
 
 interface ItineraryDay {
   day: number;
@@ -251,39 +252,46 @@ export default function PackageDetailPage() {
   // Save package details
   const handleSaveDetails = async () => {
     setSaving(true);
-    const formData = new FormData();
-    formData.append("title", form.title);
-    formData.append("slug", form.slug);
-    formData.append("description", form.description);
-    formData.append("country", form.country);
-    formData.append("location", form.location);
-    formData.append("travelType", form.travelType);
-    formData.append("price", form.price);
-    formData.append("strikePrice", form.strikePrice || "0");
-    formData.append("duration", JSON.stringify({ days: Number(form.days), nights: Number(form.nights) }));
-    formData.append("highlights", JSON.stringify(highlights));
-    formData.append("amenities", JSON.stringify(amenities));
-    formData.append("inclusions", JSON.stringify(inclusions));
-    formData.append("exclusions", JSON.stringify(exclusions));
-    formData.append("isFeatured", String(form.isFeatured));
-    formData.append("rating", form.rating || "0");
-    formData.append("itinerary", JSON.stringify(itinerary));
-
-    if (newImageFiles.length > 0) {
-      for (let i = 0; i < newImageFiles.length; i++) {
-        formData.append("images", newImageFiles[i]);
-      }
-    }
-
-    // Append itinerary images
-    Object.entries(itineraryImageFiles).forEach(([index, file]) => {
-      formData.append(`itineraryImage_${index}`, file);
-    });
 
     try {
-      await api.put(`/packages/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Upload new package images to Cloudinary
+      let newImageUrls: string[] = [];
+      if (newImageFiles.length > 0) {
+        newImageUrls = await uploadMultipleToCloudinary(newImageFiles, "vacation/packages");
+      }
+
+      // Upload itinerary images to Cloudinary
+      const updatedItinerary = [...itinerary];
+      for (const [index, file] of Object.entries(itineraryImageFiles)) {
+        const url = await uploadToCloudinary(file, "vacation/packages/itinerary");
+        updatedItinerary[Number(index)] = { ...updatedItinerary[Number(index)], image: url };
+      }
+
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        slug: form.slug,
+        description: form.description,
+        country: form.country,
+        location: form.location,
+        travelType: form.travelType,
+        price: form.price,
+        strikePrice: form.strikePrice || "0",
+        duration: { days: Number(form.days), nights: Number(form.nights) },
+        highlights,
+        amenities,
+        inclusions,
+        exclusions,
+        isFeatured: form.isFeatured,
+        rating: form.rating || "0",
+        itinerary: updatedItinerary,
+      };
+
+      // Merge new images with existing
+      if (newImageUrls.length > 0) {
+        payload.images = [...existingImages, ...newImageUrls];
+      }
+
+      await api.put(`/packages/${id}`, payload);
       toast.success("Package updated successfully");
       setItineraryImageFiles({});
       setItineraryImagePreviews({});

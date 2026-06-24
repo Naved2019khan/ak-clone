@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X, MapPin, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
 interface Country {
   _id: string;
@@ -121,29 +122,32 @@ export default function LocationsPage() {
     e.preventDefault();
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.append("name", form.name);
-    formData.append("country", form.country);
-    formData.append("description", form.description);
-    formData.append("price", form.price || "0");
-    formData.append("strikePrice", form.strikePrice || "0");
-    formData.append("rating", form.rating || "0");
-    formData.append("reviews", form.reviews || "0");
-    formData.append("days", form.days || "1");
-    formData.append("nights", form.nights || "0");
-    formData.append("packageTypes", JSON.stringify(form.packageTypes));
-    if (imageFile) formData.append("image", imageFile);
-
     try {
+      // Upload image to Cloudinary first if a file is selected
+      let imageUrl = "";
+      if (imageFile) {
+        imageUrl = await uploadToCloudinary(imageFile, "vacation/locations");
+      }
+
+      const payload: Record<string, string | string[]> = {
+        name: form.name,
+        country: form.country,
+        description: form.description,
+        price: form.price || "0",
+        strikePrice: form.strikePrice || "0",
+        rating: form.rating || "0",
+        reviews: form.reviews || "0",
+        days: form.days || "1",
+        nights: form.nights || "0",
+        packageTypes: JSON.stringify(form.packageTypes) as unknown as string,
+      };
+      if (imageUrl) payload.image = imageUrl;
+
       if (editing) {
-        await api.put(`/locations/${editing._id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.put(`/locations/${editing._id}`, payload);
         toast.success("Location updated");
       } else {
-        await api.post("/locations", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post("/locations", payload);
         toast.success("Location created");
       }
       setModalOpen(false);

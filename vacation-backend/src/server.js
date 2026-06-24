@@ -24,6 +24,7 @@ app.use("/api/packages", require("./routes/package.routes"));
 app.use("/api/destinations", require("./routes/destination.routes"));
 app.use("/api/settings", require("./routes/settings.routes"));
 app.use("/api/bookings", require("./routes/booking.routes"));
+app.use("/api/cloudinary", require("./routes/cloudinary.routes"));
 
 // Health check
 app.get("/", (req, res) => {
