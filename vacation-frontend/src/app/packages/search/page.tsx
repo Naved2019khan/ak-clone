@@ -768,6 +768,43 @@ function PackageCard({
   const images = pkg.images && pkg.images.length > 0 ? pkg.images : [];
   const maxImages = images.slice(0, 5);
 
+  // Touch swipe support
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const diff = touchStartX.current - touchEndX.current;
+    const threshold = 50;
+    if (diff > threshold) {
+      // Swipe left - next image
+      setCurrentImage((prev) => (prev === maxImages.length - 1 ? 0 : prev + 1));
+    } else if (diff < -threshold) {
+      // Swipe right - previous image
+      setCurrentImage((prev) => (prev === 0 ? maxImages.length - 1 : prev - 1));
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  // Auto-slide
+  useEffect(() => {
+    if (maxImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentImage((prev) => (prev === maxImages.length - 1 ? 0 : prev + 1));
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [maxImages.length]);
+
   const getSingleImageUrl = (img: string) => {
     return img.startsWith("http") ? img : `http://localhost:5000/${img}`;
   };
@@ -788,7 +825,12 @@ function PackageCard({
     <article className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group">
       <div className="flex flex-col sm:flex-row">
         {/* Image carousel - clean, no overlays */}
-        <div className="relative sm:w-[320px] h-56 sm:h-full sm:min-h-full shrink-0 overflow-hidden">
+        <div
+          className="relative sm:w-[320px] h-56 sm:h-auto sm:min-h-[240px] shrink-0 overflow-hidden touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {maxImages.length > 0 ? (
             <img
               src={getSingleImageUrl(maxImages[currentImage])}
@@ -808,13 +850,13 @@ function PackageCard({
             <>
               <button
                 onClick={prevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-white"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-700" />
               </button>
               <button
                 onClick={nextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-white"
               >
                 <ChevronRight className="w-4 h-4 text-gray-700" />
               </button>
@@ -889,7 +931,7 @@ function PackageCard({
           )}
 
           {/* Price & CTA */}
-          <div className="mt-auto pt-4 flex items-end justify-between border-t border-gray-100 mt-5">
+          <div className="mt-auto pt-4 flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between border-t border-gray-100 mt-5">
             <div>
               {Number(pkg.strikePrice) > 0 && Number(pkg.strikePrice) > pkg.price && (
                 <div className="text-xs text-gray-400 line-through">₹{pkg.strikePrice!.toLocaleString()}</div>
@@ -899,16 +941,16 @@ function PackageCard({
                 <span className="text-sm font-normal text-gray-500 ml-1">/person</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowMore(!showMore)}
-                className="border border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold text-sm px-4 py-2.5 rounded-xl transition-all"
+                className="flex-1 sm:flex-none border border-orange-500 text-orange-500 hover:bg-orange-50 font-semibold text-sm px-4 py-2.5 rounded-xl transition-all"
               >
                 {showMore ? "Less Details" : "More Details"}
               </button>
               <Link
                 href={`/packages/${encodeURIComponent((pkg.country?.name || "package").toLowerCase().replace(/\s+/g, "-"))}/${pkg.slug || pkg._id}`}
-                className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-lg shadow-md shadow-orange-500/20"
+                className="flex-1 sm:flex-none text-center bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-lg shadow-md shadow-orange-500/20"
               >
                 Book Now
               </Link>

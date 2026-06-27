@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, X, ImagePlus, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
-import { uploadMultipleToCloudinary } from "@/lib/cloudinary";
+import { uploadMultipleToCloudinary, validateImageFiles, MAX_IMAGE_SIZE } from "@/lib/cloudinary";
 
 // Tag Input for the modal
 function ModalTagInput({
@@ -137,6 +137,7 @@ export default function PackagesPage() {
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageError, setImageError] = useState<string>("");
 
   const fetchData = async () => {
     try {
@@ -169,8 +170,21 @@ export default function PackagesPage() {
   // Handle image file selection with preview
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    setImageFiles(files);
+    setImageError("");
+
     if (files) {
+      const fileArray = Array.from(files);
+      const errors = validateImageFiles(fileArray);
+
+      if (errors.length > 0) {
+        setImageError(errors.join(" "));
+        setImageFiles(null);
+        setImagePreviews([]);
+        e.target.value = "";
+        return;
+      }
+
+      setImageFiles(files);
       const previews: string[] = [];
       for (let i = 0; i < files.length; i++) {
         previews.push(URL.createObjectURL(files[i]));
@@ -201,6 +215,7 @@ export default function PackagesPage() {
     setExclusions([]);
     setImageFiles(null);
     setImagePreviews([]);
+    setImageError("");
     setModalOpen(true);
   };
 
@@ -223,6 +238,7 @@ export default function PackagesPage() {
     setInclusions(item.inclusions || []);
     setExclusions(item.exclusions || []);
     setImageFiles(null);
+    setImageError("");
     // Show existing images as previews
     if (item.images?.length > 0) {
       setImagePreviews(
@@ -597,9 +613,15 @@ export default function PackagesPage() {
                   <label htmlFor="pkg-images" className="cursor-pointer flex flex-col items-center gap-2">
                     <ImagePlus className="w-8 h-8 text-gray-400" />
                     <span className="text-sm text-gray-500">Click to upload images</span>
-                    <span className="text-xs text-gray-400">PNG, JPG, WEBP up to 5MB each</span>
+                    <span className="text-xs text-gray-400">PNG, JPG, WEBP — max 600KB per image</span>
                   </label>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Recommended: 1200×800px, landscape orientation. Compress images using tools like TinyPNG for best results.
+                </p>
+                {imageError && (
+                  <p className="text-xs text-red-500 mt-1">{imageError}</p>
+                )}
 
                 {/* Image Previews */}
                 {imagePreviews.length > 0 && (

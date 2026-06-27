@@ -1,5 +1,30 @@
 import api from "./api";
 
+/** Maximum allowed image file size in bytes (600KB) */
+export const MAX_IMAGE_SIZE = 600 * 1024; // 600KB
+
+/**
+ * Validate a single image file against the size limit.
+ * Returns an error message if invalid, or null if valid.
+ */
+export function validateImageFile(file: File): string | null {
+  if (file.size > MAX_IMAGE_SIZE) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    return `"${file.name}" is ${sizeMB}MB which exceeds the 600KB limit. Please compress or resize the image before uploading.`;
+  }
+  return null;
+}
+
+/**
+ * Validate multiple image files against the size limit.
+ * Returns an array of error messages for invalid files, or empty array if all valid.
+ */
+export function validateImageFiles(files: File[]): string[] {
+  return files
+    .map((file) => validateImageFile(file))
+    .filter((msg): msg is string => msg !== null);
+}
+
 interface CloudinaryUploadResult {
   secure_url: string;
   public_id: string;
@@ -19,14 +44,20 @@ interface SignatureResponse {
 
 /**
  * Upload a single file directly to Cloudinary using signed upload.
- * 1. Gets a signature from our backend
- * 2. Uploads directly to Cloudinary (faster, no server bottleneck)
- * 3. Returns the secure_url
+ * 1. Validates file size (max 600KB)
+ * 2. Gets a signature from our backend
+ * 3. Uploads directly to Cloudinary (faster, no server bottleneck)
+ * 4. Returns the secure_url
  */
 export async function uploadToCloudinary(
   file: File,
   folder: string = "vacation"
 ): Promise<string> {
+  // Validate file size
+  const validationError = validateImageFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
   // Step 1: Get signature from backend
   const { data } = await api.get("/cloudinary/signature", {
     params: { folder },

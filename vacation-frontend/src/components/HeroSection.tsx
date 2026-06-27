@@ -364,9 +364,9 @@ export default function HeroSection() {
           </div>
 
           {/* ── Right: Image Section ── */}
-          <div className="relative flex justify-end">
+          <div className="relative flex justify-center lg:justify-end">
             {/* Main image */}
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[3/4] max-h-[560px] w-full max-w-md ml-auto ring-1 ring-black/5">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[3/4] max-h-[560px] w-full max-w-md mx-auto lg:mx-0 lg:ml-auto ring-1 ring-black/5">
               <img
                 src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=85"
                 alt="Majestic mountain landscape"
@@ -506,12 +506,18 @@ export default function HeroSection() {
                 </button>
               </div>
 
-              {/* Guests Dropdown */}
+              {/* Guests Dropdown - Mobile overlay */}
+              {guestsDropdownOpen && (
+                <div
+                  className="fixed inset-0 bg-black/30 z-40 md:hidden"
+                  onClick={() => setGuestsDropdownOpen(false)}
+                />
+              )}
               <div
-                className={`absolute top-full left-0 mt-3 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 p-5 z-50 transition-all duration-200 origin-top ${
+                className={`fixed md:absolute inset-x-4 md:inset-x-auto top-1/2 md:top-full -translate-y-1/2 md:translate-y-0 left-auto md:left-0 mt-0 md:mt-3 w-auto md:w-72 bg-white rounded-xl shadow-2xl border border-gray-100 p-5 z-50 transition-all duration-200 origin-center md:origin-top ${
                   guestsDropdownOpen
-                    ? "opacity-100 scale-y-100 translate-y-0"
-                    : "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
+                    ? "opacity-100 scale-100 md:scale-y-100"
+                    : "opacity-0 scale-95 md:scale-y-95 pointer-events-none"
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -590,12 +596,18 @@ export default function HeroSection() {
                 </button>
               </div>
 
-              {/* Calendar Dropdown */}
+              {/* Calendar Dropdown - Mobile overlay */}
+              {calendarOpen && (
+                <div
+                  className="fixed inset-0 bg-black/30 z-40 md:hidden"
+                  onClick={() => setCalendarOpen(false)}
+                />
+              )}
               <div
-                className={`absolute top-full left-0 md:left-1/2 md:-translate-x-1/2 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 md:p-5 z-50 transition-all duration-200 origin-top w-[calc(100vw-3rem)] md:w-[580px] ${
+                className={`fixed md:absolute inset-x-3 md:inset-x-auto top-1/2 md:top-full -translate-y-1/2 md:translate-y-0 left-auto md:left-1/2 md:-translate-x-1/2 mt-0 md:mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 md:p-5 z-50 transition-all duration-200 origin-center md:origin-top w-auto md:w-[580px] max-h-[85vh] md:max-h-none overflow-y-auto ${
                   calendarOpen
-                    ? "opacity-100 scale-y-100 translate-y-0"
-                    : "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
+                    ? "opacity-100 scale-100 md:scale-y-100"
+                    : "opacity-0 scale-95 md:scale-y-95 pointer-events-none"
                 }`}
               >
                 {/* Navigation */}
@@ -609,11 +621,11 @@ export default function HeroSection() {
                   >
                     <ChevronLeft className="w-4 h-4 text-gray-600" />
                   </button>
-                  <div className="flex gap-12">
+                  <div className="flex flex-col md:flex-row gap-1 md:gap-12 items-center">
                     <span className="text-sm font-bold text-gray-900">
                       {MONTH_NAMES[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
                     </span>
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900 hidden md:block">
                       {MONTH_NAMES[secondMonth.getMonth()]} {secondMonth.getFullYear()}
                     </span>
                   </div>
@@ -628,7 +640,7 @@ export default function HeroSection() {
                   </button>
                 </div>
 
-                {/* Two month grid */}
+                {/* Two month grid - single column on mobile */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* First month */}
                   <div>
@@ -667,8 +679,8 @@ export default function HeroSection() {
                     </div>
                   </div>
 
-                  {/* Second month */}
-                  <div>
+                  {/* Second month - hidden on mobile */}
+                  <div className="hidden md:block">
                     <div className="grid grid-cols-7 mb-2">
                       {WEEKDAYS.map((d) => (
                         <div key={`${d}-2`} className="text-center text-xs font-semibold text-gray-400 py-1">

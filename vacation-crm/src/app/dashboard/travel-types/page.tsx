@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadToCloudinary, validateImageFile } from "@/lib/cloudinary";
 
 interface TravelType {
   _id: string;
@@ -21,6 +21,7 @@ export default function TravelTypesPage() {
   const [editing, setEditing] = useState<TravelType | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -42,6 +43,7 @@ export default function TravelTypesPage() {
     setEditing(null);
     setForm({ name: "", description: "" });
     setImageFile(null);
+    setImageError("");
     setModalOpen(true);
   };
 
@@ -49,6 +51,7 @@ export default function TravelTypesPage() {
     setEditing(item);
     setForm({ name: item.name, description: item.description });
     setImageFile(null);
+    setImageError("");
     setModalOpen(true);
   };
 
@@ -209,9 +212,28 @@ export default function TravelTypesPage() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setImageError("");
+                    if (file) {
+                      const error = validateImageFile(file);
+                      if (error) {
+                        setImageError(error);
+                        setImageFile(null);
+                        e.target.value = "";
+                        return;
+                      }
+                    }
+                    setImageFile(file);
+                  }}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-600 hover:file:bg-orange-100"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Max 600KB. Recommended: 1200×800px, landscape orientation. Use TinyPNG to compress.
+                </p>
+                {imageError && (
+                  <p className="text-xs text-red-500 mt-1">{imageError}</p>
+                )}
               </div>
 
               <button
